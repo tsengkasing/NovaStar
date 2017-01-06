@@ -8,4 +8,11 @@ node_modules/
 
 # Optimizing package
 build/
+Server/page/
+*.rar
+
+# test
+testData/
+
+
 

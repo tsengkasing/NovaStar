@@ -8,10 +8,11 @@ import ActionBackup from 'material-ui/svg-icons/action/backup';
 import ActionDelete from 'material-ui/svg-icons/action/delete';
 import ActionBuild from 'material-ui/svg-icons/action/build';
 import ActionRestore from 'material-ui/svg-icons/action/restore';
+import ActionZoomIn from 'material-ui/svg-icons/action/zoom-in';
 import NavigationRefresh from 'material-ui/svg-icons/navigation/refresh';
 import FileFolderOpen from 'material-ui/svg-icons/file/folder-open';
 import FileFileDownload from 'material-ui/svg-icons/file/file-download';
-import {red500, greenA200} from 'material-ui/styles/colors';
+import {red500, greenA200, yellow700} from 'material-ui/styles/colors';
 import FileCloudCircle from 'material-ui/svg-icons/file/cloud-circle';
 import CircularProgress from 'material-ui/CircularProgress';
 import SelectField from 'material-ui/SelectField';
@@ -22,6 +23,7 @@ import RaisedButton from 'material-ui/RaisedButton';
 import TextField from 'material-ui/TextField';
 import Subheader from 'material-ui/Subheader';
 import Dialog from 'material-ui/Dialog';
+import FileBlocksDetail from './FileBlocksDetail';
 import 'jquery-form';
 import $ from 'jquery';
 
@@ -84,6 +86,7 @@ const API = {
     Rename : URL + '/rename',
     NodeStatus : URL + '/node',
     BlockSize : URL + '/blocksize',
+    SpaceStatus : URL + '/space',
 };
 
 let sample = [
@@ -109,9 +112,10 @@ class FormatDialog extends React.Component {
         open: false,
     };
 
-    handleOpen = (fileId) => {
+    handleOpen = () => {
         this.setState({
             open: true,
+            progress : false
         });
     };
 
@@ -127,7 +131,10 @@ class FormatDialog extends React.Component {
             success : function(data, textStatus, jqXHR) {
                 console.log(data);
                 this.props.onSuccess();
-                this.setState({open: false});
+                this.setState({
+                    open: false,
+                    progress : false
+                });
             }.bind(this),
             error : function(xhr, textStatus) {
                 console.log(xhr.status + '\n' + textStatus + '\n');
@@ -406,11 +413,11 @@ class App extends React.Component {
 
             file_list : [],
             progress : false,
-            blockSize : 64,
+            blockSize : 32,
 
-            slaves : [true, true, false, false, true],
-            used_space : 14,
-            capacity : 256,
+            slaves : [null, null, null, null, null],
+            used_space : 0,
+            capacity : 0,
         };
     }
 
@@ -420,14 +427,32 @@ class App extends React.Component {
             type : 'GET',
             contentType: 'application/json;charset=UTF-8',
             success : function(data, textStatus, jqXHR) {
-                console.log(data);
+                //console.log(data);
                 this.setState({slaves : data});
             }.bind(this),
             error : function(xhr, textStatus) {
                 console.log(xhr.status + '\n' + textStatus + '\n');
             }
         });
-        setTimeout(this.getNodeStatus, 10000);
+        setTimeout(this.getNodeStatus, 16000);
+    };
+
+    getSpaceStatus = () => {
+        $.ajax({
+            url : API.SpaceStatus,
+            type : 'GET',
+            contentType: 'application/json;charset=UTF-8',
+            success : function(data, textStatus, jqXHR) {
+                //console.log(data);
+                this.setState({
+                    capacity : data.total,
+                    used_space : data.used,
+                });
+            }.bind(this),
+            error : function(xhr, textStatus) {
+                console.log(xhr.status + '\n' + textStatus + '\n');
+            }
+        });
     };
 
     formatFileSystem = () => {
@@ -449,6 +474,7 @@ class App extends React.Component {
                     current_list : current_list,
                     disableNextButton : pages_num <= 1,
                 });
+                this.getSpaceStatus();
             }.bind(this),
             error : function(xhr, textStatus) {
                 console.log(xhr.status + '\n' + textStatus + '\n');
@@ -471,6 +497,7 @@ class App extends React.Component {
             progress : false
         });
         this.getFileList();
+        setTimeout(this.getFileList, 1000);
     };
 
     handleChange = (event, index, value) => {
@@ -498,6 +525,7 @@ class App extends React.Component {
     downloadFile = (index) => {
         const file = this.state.current_list[index];
         console.log(file.id);
+        this.showProgress();
         $.ajax({
             url : API.Download,
             type : 'GET',
@@ -507,9 +535,11 @@ class App extends React.Component {
             contentType: 'application/json;charset=UTF-8',
             success : function(data, textStatus, jqXHR) {
                 console.log(data);
-                if(data !== 'File Not Found' && data.length < 36)
-                    window.open(data);
-            },
+                this.hiddenProgress(true);
+                if(data !== 'File Not Found') {
+                    setTimeout(()=>window.open(data), 5000);
+                }
+            }.bind(this),
             error : function(xhr, textStatus) {
                 console.log(xhr.status + '\n' + textStatus + '\n');
             }
@@ -523,16 +553,17 @@ class App extends React.Component {
     };
 
     componentDidMount() {
-        //this.getFileList();
-        //this.getNodeStatus();
-        let current_list = sample.slice(0, 10);
-        let pages_num = parseInt((sample.length / 10), 10) + ((sample.length % 10 > 0) ? 1 : 0);
-        this.setState({
-            file_list : sample,
-            pages_num : pages_num,
-            current_list : current_list,
-            disableNextButton : pages_num <= 1,
-        });
+        this.getFileList();
+        this.getNodeStatus();
+        this.handleChange(null, null, this.state.blockSize);
+        // let current_list = sample.slice(0, 10);
+        // let pages_num = parseInt((sample.length / 10), 10) + ((sample.length % 10 > 0) ? 1 : 0);
+        // this.setState({
+        //     file_list : sample,
+        //     pages_num : pages_num,
+        //     current_list : current_list,
+        //     disableNextButton : pages_num <= 1,
+        // });
     }
 
     previousPage= () => {
@@ -571,7 +602,7 @@ class App extends React.Component {
                           <Subheader>Node Status</Subheader>
                           {this.state.slaves.map((slave, index)=>(
                               <div key={index} style={styles.slaveStatus}>Node-{index + 1}
-                                <FileCloudCircle style={styles.iconStyles} color={slave ? greenA200 : red500} />
+                                <FileCloudCircle style={styles.iconStyles} color={slave === null ? yellow700 : (slave ? greenA200 : red500)} />
                               </div>
                           ))}
                           <br />
@@ -581,11 +612,14 @@ class App extends React.Component {
                               value={this.state.blockSize}
                               onChange={this.handleChange}
                           >
+                              <MenuItem value={2} primaryText="2M" />
                               <MenuItem value={8} primaryText="8M" />
                               <MenuItem value={16} primaryText="16M" />
                               <MenuItem value={32} primaryText="32M" />
                               <MenuItem value={64} primaryText="64M" />
                               <MenuItem value={128} primaryText="128M" />
+                              <MenuItem value={256} primaryText="256M" />
+                              <MenuItem value={512} primaryText="512M" />
                           </SelectField>
                           <br />
                       </div>
@@ -622,8 +656,14 @@ class App extends React.Component {
                                       <TableRowColumn colSpan="1" style={styles.tableRightColumn} id={index}>
                                           <IconButton
                                               iconStyle={{color : 'rgb(0, 188, 212)'}}
+                                              tooltip="Detail"
+                                              tooltipPosition="center-center"
+                                              onTouchTap={()=>{this.refs.DetailDialog.handleOpen(this.state.current_list[index])}}>
+                                              <ActionZoomIn/>
+                                          </IconButton>
+                                          <IconButton
+                                              iconStyle={{color : 'rgb(0, 188, 212)'}}
                                               tooltip="Download"
-                                              // eslint-disable-next-line
                                               tooltipPosition="center-center"
                                               onTouchTap={()=>{this.downloadFile(index)}}>
                                               <FileFileDownload/>
@@ -631,7 +671,6 @@ class App extends React.Component {
                                           <IconButton
                                               iconStyle={{color : 'rgb(0, 188, 212)'}}
                                               tooltip="Rename"
-                                              // eslint-disable-next-line
                                               tooltipPosition="center-center"
                                               onTouchTap={()=>{this.renameFile(index)}}>
                                               <ActionBuild/>
@@ -639,29 +678,10 @@ class App extends React.Component {
                                           <IconButton
                                               iconStyle={{color : 'rgb(0, 188, 212)'}}
                                               tooltip="Delete"
-                                              // eslint-disable-next-line
                                               tooltipPosition="center-center"
                                               onTouchTap={()=>{this.removeFile(index)}}>
                                               <ActionDelete/>
                                           </IconButton>
-                                          {/*<FlatButton*/}
-                                              {/*label="Download"*/}
-                                              {/*primary={true}*/}
-                                              {/*icon={<FileFileDownload/>}*/}
-                                              {/*onTouchTap={()=>{this.downloadFile(index)}}*/}
-                                          {/*/>*/}
-                                          {/*<FlatButton*/}
-                                              {/*label="Rename"*/}
-                                              {/*primary={true}*/}
-                                              {/*icon={<ActionBuild/>}*/}
-                                              {/*onTouchTap={()=>{this.renameFile(index)}}*/}
-                                          {/*/>*/}
-                                          {/*<FlatButton*/}
-                                              {/*label="Delete"*/}
-                                              {/*primary={true}*/}
-                                              {/*icon={<ActionDelete/>}*/}
-                                              {/*onTouchTap={()=>{this.removeFile(index)}}*/}
-                                          {/*/>*/}
                                       </TableRowColumn>
                                   </TableRow>
                               ))}
@@ -701,7 +721,7 @@ class App extends React.Component {
                           <div style={{clear:'both'}}/>
                       </CardActions>
                       <div style={{textAlign : 'right', color : 'rgba(0, 0, 0, 0.6)', margin: '0px 32px 16px 0px'}}>
-                          {'Used-Space : ' + this.state.used_space + 'G | Capacity : ' +　this.state.capacity + 'G'}
+                          {'Used-Space : ' + this.state.used_space + ' | Capacity : ' +　this.state.capacity}
                       </div>
                   </div>
                 </Card>
@@ -709,6 +729,7 @@ class App extends React.Component {
                 <RenameFileDialog ref="RenameDialog" onSuccess={this.hiddenProgress}/>
                 <DeleteFileDialog ref="DeleteDialog" onSuccess={this.hiddenProgress}/>
                 <FormatDialog ref="FormatDialog" onSuccess={this.hiddenProgress}/>
+                <FileBlocksDetail ref="DetailDialog"/>
             </div>
         );
     }

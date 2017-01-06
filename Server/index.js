@@ -35,7 +35,9 @@ const API = {
     VerifyFile: '/api/verify/',
     NodeStatus: '/api/slave/status',
     RenameFile: '/api/rename',
-    deleteFile: '/api/delete'
+    deleteFile: '/api/delete',
+    format: '/api/format',
+    SpaceStatus: '/api/space'
 };
 
 var file_list = [];
@@ -60,7 +62,11 @@ function getAllFilesInfo() {
             //console.log(`BODY: ${chunk}`);
         });
         res.on('end', () => {
-            receiveData = JSON.parse(receiveData);
+            try {
+                receiveData = JSON.parse(receiveData);
+            }catch (err) {
+                console.log(err); return;
+            }
             console.log('[INFO] [MASTER] File List');
             //console.log(receiveData);
             file_list = receiveData;
@@ -86,7 +92,11 @@ function requestVerifyFile(file_id, callback) {
             receiveData += chunk;
         });
         res.on('end', () => {
-            receiveData = JSON.parse(receiveData);
+            try {
+                receiveData = JSON.parse(receiveData);
+            }catch (err) {
+                console.log(err); return;
+            }
             console.log('[INFO] [MASTER] Verify File' + receiveData);
             if (res.statusCode == 200)
                 callback();
@@ -115,7 +125,11 @@ function requestDeleteFile(file_id, callback) {
             receiveData += chunk;
         });
         res.on('end', () => {
-            receiveData = JSON.parse(receiveData);
+            try {
+                receiveData = JSON.parse(receiveData);
+            }catch (err) {
+                console.log(err); return;
+            }
             console.log('[INFO] [MASTER] Delete File' + receiveData);
             if (receiveData.status == 'OK')
                 callback();
@@ -142,8 +156,72 @@ function requestNodeStatus(callback) {
             receiveData += chunk;
         });
         res.on('end', () => {
-            receiveData = JSON.parse(receiveData);
-            console.log('[INFO] [MASTER] NodeStatus ' + receiveData);
+            try {
+                receiveData = JSON.parse(receiveData);
+            }catch (err) {
+                console.log(err); return;
+            }
+            console.log('[INFO] [MASTER] NodeStatus ' + JSON.stringify(receiveData));
+            if (res.statusCode == 200)
+                callback(receiveData);
+        });
+    });
+    req.on('error', (e) => {
+        console.log(`problem with request: ${e.message}`);
+    });
+    req.end();
+}
+
+function requestFormat(callback) {
+    var receiveData = '';
+    const opts = {
+        hostname: MASTER_HOSTNAME,
+        path: API.format,
+        method: 'GET',
+        port: MASTER_PORT
+    };
+    var req = http.request(opts, function(res) {
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+            receiveData += chunk;
+        });
+        res.on('end', () => {
+            try {
+                receiveData = JSON.parse(receiveData);
+            }catch (err) {
+                console.log(err); return;
+            }
+            console.log('[INFO] [MASTER] Foramt ' + JSON.stringify(receiveData));
+            if (res.statusCode == 200)
+                callback(receiveData);
+        });
+    });
+    req.on('error', (e) => {
+        console.log(`problem with request: ${e.message}`);
+    });
+    req.end();
+}
+
+function requestSpaceStatus(callback) {
+    var receiveData = '';
+    const opts = {
+        hostname: MASTER_HOSTNAME,
+        path: API.SpaceStatus,
+        method: 'GET',
+        port: MASTER_PORT
+    };
+    var req = http.request(opts, function(res) {
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+            receiveData += chunk;
+        });
+        res.on('end', () => {
+            try {
+                receiveData = JSON.parse(receiveData);
+            }catch (err) {
+                console.log(err); return;
+            }
+            console.log('[INFO] [MASTER] Space Status ' + JSON.stringify(receiveData));
             if (res.statusCode == 200)
                 callback(receiveData);
         });
@@ -172,9 +250,9 @@ function parseFileSize(size) {
     if (size >= 1024) {
         if (size / 1024 > 1024) {
             if (size / 1024 / 1024 > 1024) {
-                return GBytes + ' GB';
+                return GBytes + (MBytes / 1024).toFixed(2).slice(1) + ' GB';
             } else
-                return MBytes + ' MB';
+                return MBytes + (KBytes / 1024).toFixed(2).slice(1) + ' MB';
         } else
             return KBytes + ' KB';
     } else
@@ -277,7 +355,7 @@ var server = http.createServer(function(req, res) {
                                 var Client = require('scp2').Client;
                                 info = JSON.parse(info);
                                 console.log('[INFO] [MASTER] Slave Target');
-                                //console.log(info);
+                                console.log(info);
                                 const blocks = info.block1;
 
                                 for (var i = 0; i < 3; i++) {
@@ -288,10 +366,16 @@ var server = http.createServer(function(req, res) {
 
                                     var _client = new Client({
                                         port: SLAVE[blocks[key].slaveIP],
+                                        //host : blocks[key].slaveIP,
                                         host: MASTER_HOSTNAME,
                                         username: blocks[key].username,
                                         password: blocks[key].password,
                                     });
+
+                                    _client.on('transfer', (buffer, uploaded, total) => {
+                                        console.log('[INFO] [SCP] ' + uploaded + ' / ' + total);
+                                    });
+
                                     _client.upload(file.path, blocks[key].absPath,
                                         function(err) {
                                             if (err) {
@@ -358,6 +442,7 @@ var server = http.createServer(function(req, res) {
                             };
                             var req = http.request(opts, function(_res) {
                                 var Client = require('scp2').Client;
+
                                 _res.setEncoding('utf8');
                                 _res.on('data', (chunk) => { info += chunk; });
                                 _res.on('end', () => {
@@ -369,7 +454,7 @@ var server = http.createServer(function(req, res) {
 
                                         const part = j + 1;
                                         const block = info['block' + part];
-                                        //console.log(block);
+                                        console.log(block);
 
                                         for (var i = 0; i < 3; i++) {
 
@@ -377,8 +462,17 @@ var server = http.createServer(function(req, res) {
                                             var _client = new Client({
                                                 port: SLAVE[block[key].slaveIP],
                                                 host: MASTER_HOSTNAME,
+                                                //host : block[key].slaveIP,
                                                 username: block[key].username,
                                                 password: block[key].password,
+                                            });
+
+                                            _client.on('transfer', (buffer, uploaded, total) => {
+                                                console.log('[INFO] [SCP] ' + uploaded + ' / ' + total);
+                                            });
+
+                                            _client.on('transfer', (buffer, uploaded, total) => {
+                                                console.log('[INFO] [SCP] ' + uploaded + ' / ' + total);
                                             });
 
                                             console.log('[INFO] 正在上传第 ' + (key + 1) + ' 份的 ' + part + ' 部分');
@@ -446,7 +540,7 @@ var server = http.createServer(function(req, res) {
                         if (file.realBlockCount == 1) {
                             const key = 0;
                             client.scp({
-                                    //host: slaveIP,
+                                    //host: blocks[key].slaveIP,
                                     host: MASTER_HOSTNAME,
                                     username: blocks[key].username,
                                     password: blocks[key].password,
@@ -470,11 +564,20 @@ var server = http.createServer(function(req, res) {
                                 block.push('./temp/' + blocks[i].blockName);
                             }
 
+
                             //console.log(block);
                             for (var k = 0; k < file.realBlockCount; k++) {
                                 const key = k;
+                                console.log({
+                                    //host: blocks[key].slaveIP,
+                                    host: MASTER_HOSTNAME,
+                                    username: blocks[key].username,
+                                    password: blocks[key].password,
+                                    path: blocks[key].absPath,
+                                    port: SLAVE[blocks[key].slaveIP]
+                                });
                                 client.scp({
-                                    //host: slaveIP,
+                                    //host: blocks[key].slaveIP,
                                     host: MASTER_HOSTNAME,
                                     username: blocks[key].username,
                                     password: blocks[key].password,
@@ -494,9 +597,9 @@ var server = http.createServer(function(req, res) {
                                                     return;
                                                 }
                                                 console.log('[INFO] 合并成功 文件路径: ' + filename);
-                                                for (var c = 0; c < block.length; c++) {
-                                                    fs.unlinkSync(block[c]); //删除本地缓存分割文件
-                                                }
+                                                // for (var c = 0; c < block.length; c++) {
+                                                //     fs.unlinkSync(block[c]); //删除本地缓存分割文件
+                                                // }
                                                 res.writeHead(200, { 'content-type': 'text/plain' });
                                                 res.end('http://localhost:6740/public/' + file.fileName);
                                             });
@@ -522,7 +625,9 @@ var server = http.createServer(function(req, res) {
                     id: file.fileId,
                     name: file.fileName,
                     size: parseFileSize(file.fileSize),
-                    uploadTime: new Date(file.createTime).toLocaleString()
+                    uploadTime: new Date(file.createTime).toLocaleString(),
+                    fileBlocks : file.allFileBlocks,
+                    realBlockCount : file.realBlockCount
                 }));
                 res.writeHead(200, { 'content-type': 'application/json' });
                 res.end(JSON.stringify(file_list_simple));
@@ -563,7 +668,7 @@ var server = http.createServer(function(req, res) {
                                 const key = i;
                                 deleted.push(false);
                                 var config = {
-                                    //host: blocks[key],
+                                    //host: blocks[key].block.slaveIP,
                                     host: MASTER_HOSTNAME,
                                     port: SLAVE[blocks[key].block.slaveIP],
                                     username: blocks[key].block.username,
@@ -574,7 +679,7 @@ var server = http.createServer(function(req, res) {
                                     .then((success) => {
                                         console.log('[INFO] 删除第 ' + key + ' 份冗余成功');
                                         deleted[key] = true;
-                                        if(checkArray(deleted)) {
+                                        if (checkArray(deleted)) {
                                             requestDeleteFile(fileId, () => {
                                                 res.writeHead(200, { 'content-type': 'application/json' });
                                                 res.end(JSON.stringify(true));
@@ -625,8 +730,12 @@ var server = http.createServer(function(req, res) {
                             receiveData += chunk;
                         });
                         _res.on('end', () => {
-                            receiveData = JSON.parse(receiveData);
-                            console.log('[INFO] [MASTER] Rename Status'+ receiveData);
+                            try {
+                                receiveData = JSON.parse(receiveData);
+                            }catch (err) {
+                                console.log(err); return;
+                            }
+                            console.log('[INFO] [MASTER] Rename Status' + receiveData);
                             res.writeHead(200, { 'content-type': 'application/json' });
                             if (receiveData.status == 'OK') {
                                 res.end(JSON.stringify(true));
@@ -644,27 +753,54 @@ var server = http.createServer(function(req, res) {
 
             }
             break;
-            case '/api/blocksize' : {
+        case '/api/blocksize':
+            {
                 var params = querystring.parse(URL.query);
                 console.log('[INFO] Set Block Size : ' + params.size);
                 BLOCK_SIZE = parseInt(params.size, 10) * 1024 * 1024;
                 console.log('[INFO] Block Size : ' + BLOCK_SIZE);
                 res.writeHead(200, { 'content-type': 'application/json' });
                 res.end(JSON.stringify(true));
-            }break;
-            case '/api/node' : {
+            }
+            break;
+        case '/api/node':
+            {
 
                 requestNodeStatus((receiveData) => {
                     var status = [];
-                    for(var slave in receiveData) {
-                        status.push(receiveData[slave]);
-                    }
+                    status.push(receiveData['Slave0']);
+                    status.push(receiveData['Slave1']);
+                    status.push(receiveData['Slave2']);
+                    status.push(receiveData['Slave3']);
+                    status.push(receiveData['Slave4']);
+                    // for (var slave in receiveData) {
+                    //     status.push(receiveData[slave]);
+                    // }
                     res.writeHead(200, { 'content-type': 'application/json' });
                     res.end(JSON.stringify(status));
                 });
 
 
-            }break;
+            }
+            break;
+        case '/api/format':
+            {
+                requestFormat((receiveData) => {
+                    res.writeHead(200, { 'content-type': 'application/json' });
+                    res.end(JSON.stringify(true));
+                });
+            }
+            break;
+        case '/api/space':
+            {
+                requestSpaceStatus((receiveData) => {
+                    receiveData.total = parseFileSize(receiveData.total);
+                    receiveData.used = parseFileSize(receiveData.used);
+                    res.writeHead(200, { 'content-type': 'application/json' });
+                    res.end(JSON.stringify(receiveData));
+                });
+            }
+            break;
     }
 
 });
@@ -703,7 +839,7 @@ var ProxyServer = http.createServer(function(req, res) {
     if (target == 'api') {
         proxy.web(req, res, { target: 'http://localhost:4708' });
     } else {
-        proxy.web(req, res, { target: 'http://localhost:3000' });
+        proxy.web(req, res, { target: 'http://localhost:6740' });
     }
 });
 

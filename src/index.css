@@ -1,5 +1,21 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: Roboto, Microsoft YaHei UI;
+  font-family: Roboto, Microsoft YaHei UI !important;
+}
+
+table {
+  font-family: Roboto, Microsoft YaHei UI !important;
+}
+
+tr {
+  font-family: Roboto, Microsoft YaHei UI !important;
+}
+
+td {
+  font-family: Roboto, Microsoft YaHei UI !important;
+}
+
+div {
+  font-family: Roboto, Microsoft YaHei UI !important;
 }
