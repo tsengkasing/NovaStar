@@ -129,7 +129,7 @@ class FormatDialog extends React.Component {
             type : 'GET',
             contentType: 'application/json;charset=UTF-8',
             success : function(data, textStatus, jqXHR) {
-                console.log(data);
+                //console.log(data);
                 this.props.onSuccess();
                 this.setState({
                     open: false,
@@ -203,7 +203,7 @@ class DeleteFileDialog extends React.Component {
             data : JSON.stringify(data),
             contentType: 'application/json;charset=UTF-8',
             success : function(data, textStatus, jqXHR) {
-                console.log(data);
+                //console.log(data);
                 this.setState({open: false});
                 this.props.onSuccess();
             }.bind(this),
@@ -281,7 +281,7 @@ class RenameFileDialog extends React.Component {
             data : JSON.stringify(data),
             contentType: 'application/json;charset=UTF-8',
             success : function(data, textStatus, jqXHR) {
-                console.log(data);
+                //console.log(data);
                 this.setState({open: false});
                 this.props.onSuccess();
             }.bind(this),
@@ -431,6 +431,7 @@ class App extends React.Component {
                 this.setState({slaves : data});
             }.bind(this),
             error : function(xhr, textStatus) {
+                this.setState({slaves : [null, null, null, null, null]});
                 console.log(xhr.status + '\n' + textStatus + '\n');
             }
         });
