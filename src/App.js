@@ -7,15 +7,16 @@ import LinearProgress from 'material-ui/LinearProgress';
 import ActionBackup from 'material-ui/svg-icons/action/backup';
 import ActionDelete from 'material-ui/svg-icons/action/delete';
 import ActionBuild from 'material-ui/svg-icons/action/build';
-import NotificationSync from 'material-ui/svg-icons/notification/sync';
+import ActionRestore from 'material-ui/svg-icons/action/restore';
+import NavigationRefresh from 'material-ui/svg-icons/navigation/refresh';
 import FileFolderOpen from 'material-ui/svg-icons/file/folder-open';
 import FileFileDownload from 'material-ui/svg-icons/file/file-download';
 import {red500, greenA200} from 'material-ui/styles/colors';
-import ImageLens from 'material-ui/svg-icons/image/lens';
 import FileCloudCircle from 'material-ui/svg-icons/file/cloud-circle';
 import CircularProgress from 'material-ui/CircularProgress';
 import SelectField from 'material-ui/SelectField';
 import MenuItem from 'material-ui/MenuItem';
+import IconButton from 'material-ui/IconButton';
 import FlatButton from 'material-ui/FlatButton';
 import RaisedButton from 'material-ui/RaisedButton';
 import TextField from 'material-ui/TextField';
@@ -40,7 +41,8 @@ const styles = {
         overflowY : 'hidden',
     },
     tableRightColumn : {
-        textAlign : 'right'
+        textAlign : 'right',
+        paddingRight : 0,
     },
     button: {
         margin: 12,
@@ -78,6 +80,7 @@ const API = {
     Refresh : URL + '/refresh',
     Download : URL + '/download',
     Delete : URL + '/delete',
+    Format : URL + '/format',
     Rename : URL + '/rename',
     NodeStatus : URL + '/node',
     BlockSize : URL + '/blocksize',
@@ -91,14 +94,80 @@ let sample = [
         uploadTime : '2016-12-29 18:56:00',
     },
 ];
-for(let i = 0; i < 5; i++) {
+for(let i = 0; i < 49; i++) {
     let d = new Date();
     sample.push({
         id : i,
         name : (Math.random() * 20).toFixed(0) + '.txt',
         size : (Math.random() * 256).toFixed(0) + 'MB',
-        uploadTime : d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() + ' ' + d.getHours() + ':' + d.getMinutes() + ':' + d.getSeconds(),
+        uploadTime : d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + ' ' + d.getHours() + ':' + d.getMinutes() + ':' + d.getSeconds(),
     });
+}
+
+class FormatDialog extends React.Component {
+    state = {
+        open: false,
+    };
+
+    handleOpen = (fileId) => {
+        this.setState({
+            open: true,
+        });
+    };
+
+    handleClose = () => {
+        this.setState({open: false});
+    };
+
+    handleSubmit = () => {
+        $.ajax({
+            url : API.Format,
+            type : 'GET',
+            contentType: 'application/json;charset=UTF-8',
+            success : function(data, textStatus, jqXHR) {
+                console.log(data);
+                this.props.onSuccess();
+                this.setState({open: false});
+            }.bind(this),
+            error : function(xhr, textStatus) {
+                console.log(xhr.status + '\n' + textStatus + '\n');
+                this.setState({open: false});
+            }.bind(this)
+        });
+        this.setState({
+            progress : true,
+        });
+    };
+
+    render() {
+        const actions = [
+            <FlatButton
+                label="Cancel"
+                primary={true}
+                style={{display : this.state.progress ? 'none' : 'inline-block'}}
+                onTouchTap={this.handleClose}
+            />,
+            <FlatButton
+                label="Yes"
+                primary={true}
+                style={{display : this.state.progress ? 'none' : 'inline-block'}}
+                onTouchTap={this.handleSubmit}
+            />,
+        ];
+
+        return (
+            <div>
+                <Dialog
+                    actions={actions}
+                    modal={false}
+                    open={this.state.open}
+                    onRequestClose={()=>{if(!this.state.progress) this.handleClose()}}
+                >
+                    {this.state.progress ? <div style={styles.circularProgress} ><CircularProgress /></div> : 'Format The File System?'}
+                </Dialog>
+            </div>
+        );
+    }
 }
 
 class DeleteFileDialog extends React.Component {
@@ -128,11 +197,13 @@ class DeleteFileDialog extends React.Component {
             contentType: 'application/json;charset=UTF-8',
             success : function(data, textStatus, jqXHR) {
                 console.log(data);
+                this.setState({open: false});
                 this.props.onSuccess();
             }.bind(this),
             error : function(xhr, textStatus) {
                 console.log(xhr.status + '\n' + textStatus + '\n');
-            }
+                this.setState({open: false});
+            }.bind(this)
         });
         this.setState({
             progress : true,
@@ -163,7 +234,7 @@ class DeleteFileDialog extends React.Component {
                     open={this.state.open}
                     onRequestClose={()=>{if(!this.state.progress) this.handleClose()}}
                 >
-                    {this.state.progress ? <div style={styles.circularProgress} ><CircularProgress /></div> : '删除文件？'}
+                    {this.state.progress ? <div style={styles.circularProgress} ><CircularProgress /></div> : 'Delete This File?'}
                 </Dialog>
             </div>
         );
@@ -232,7 +303,7 @@ class RenameFileDialog extends React.Component {
         return (
             <div>
                 <Dialog
-                    title="重命名文件"
+                    title="Rename File"
                     actions={actions}
                     modal={false}
                     open={this.state.open}
@@ -242,8 +313,8 @@ class RenameFileDialog extends React.Component {
                     <TextField
                         onChange={this.handleChange}
                         value={this.state.filename}
-                        hintText="新文件名"
-                        floatingLabelText="文件名"
+                        hintText="New File Name"
+                        floatingLabelText="File Name"
                     /><br />
                 </Dialog>
             </div>
@@ -296,7 +367,7 @@ class UploadFileDialog extends React.Component {
         return (
             <div>
                 <Dialog
-                    title="上传文件"
+                    title="Upload File"
                     actions={actions}
                     modal={false}
                     open={this.state.open}
@@ -304,7 +375,7 @@ class UploadFileDialog extends React.Component {
                 >
                     <form id="uploadFileForm" encType="multipart/form-data" method="post" action={API.Upload} target="uploadFrame">
                         <RaisedButton
-                            label="选择一个文件"
+                            label="Choose A File"
                             style={styles.button}
                             containerElement="label"
                             primary={true}
@@ -357,6 +428,10 @@ class App extends React.Component {
             }
         });
         setTimeout(this.getNodeStatus, 10000);
+    };
+
+    formatFileSystem = () => {
+        this.refs.FormatDialog.handleOpen();
     };
 
     getFileList = () => {
@@ -432,9 +507,9 @@ class App extends React.Component {
             contentType: 'application/json;charset=UTF-8',
             success : function(data, textStatus, jqXHR) {
                 console.log(data);
-                if(data !== 'File Not Found')
+                if(data !== 'File Not Found' && data.length < 36)
                     window.open(data);
-            }.bind(this),
+            },
             error : function(xhr, textStatus) {
                 console.log(xhr.status + '\n' + textStatus + '\n');
             }
@@ -493,16 +568,16 @@ class App extends React.Component {
                 <Card>
                   <div style={styles.card}>
                       <div style={{textAlign : 'center'}}>
-                          <Subheader>节点状态</Subheader>
+                          <Subheader>Node Status</Subheader>
                           {this.state.slaves.map((slave, index)=>(
-                              <div key={index} style={styles.slaveStatus}>节点 {index + 1}
+                              <div key={index} style={styles.slaveStatus}>Node-{index + 1}
                                 <FileCloudCircle style={styles.iconStyles} color={slave ? greenA200 : red500} />
                               </div>
                           ))}
                           <br />
                           <SelectField
                               style={{textAlign : 'left', marginTop : 16}}
-                              floatingLabelText="文件分块大小"
+                              floatingLabelText="File Block Size"
                               value={this.state.blockSize}
                               onChange={this.handleChange}
                           >
@@ -525,15 +600,15 @@ class App extends React.Component {
                               displaySelectAll={false}
                               adjustForCheckbox={false}>
                               <TableRow>
-                                  <TableHeaderColumn colSpan="6" tooltip="文件列表" style={{fontSize : '2vh', textAlign : 'center'}}>
-                                      文件列表
+                                  <TableHeaderColumn colSpan="5" style={{fontSize : '2vh', textAlign : 'center'}}>
+                                      File List
                                   </TableHeaderColumn>
                               </TableRow>
                               <TableRow>
-                                  <TableHeaderColumn colSpan="2" style={{fontSize : '2vh'}}>名称</TableHeaderColumn>
-                                  <TableHeaderColumn style={{fontSize : '2vh'}}>大小</TableHeaderColumn>
-                                  <TableHeaderColumn  style={{fontSize : '2vh'}}>上传时间</TableHeaderColumn>
-                                  <TableHeaderColumn colSpan="2" style={{fontSize : '2vh', textAlign : 'right'}}>操作</TableHeaderColumn>
+                                  <TableHeaderColumn colSpan="2" style={{fontSize : '2vh'}}>File Name</TableHeaderColumn>
+                                  <TableHeaderColumn style={{fontSize : '2vh'}}>File Size</TableHeaderColumn>
+                                  <TableHeaderColumn style={{fontSize : '2vh'}}>Uploaded Time</TableHeaderColumn>
+                                  <TableHeaderColumn colSpan="1" style={{fontSize : '2vh', textAlign : 'right'}}>Operation</TableHeaderColumn>
                               </TableRow>
                           </TableHeader>
                           <TableBody
@@ -544,27 +619,49 @@ class App extends React.Component {
                                       <TableRowColumn colSpan="2">{file.name}</TableRowColumn>
                                       <TableRowColumn>{file.size}</TableRowColumn>
                                       <TableRowColumn>{file.uploadTime}</TableRowColumn>
-                                      <TableRowColumn colSpan="2" style={styles.tableRightColumn} id={index}>
-                                          <FlatButton
-                                              label="下载"
-                                              primary={true}
-                                              icon={<FileFileDownload/>}
-                                              onTouchTap={()=>{this.downloadFile(index)}}
-                                          />
-                                          <FlatButton
-                                              label="重命名"
-                                              primary={true}
-                                              icon={<ActionBuild/>}
-                                              onTouchTap={()=>{this.renameFile(index)}}
-                                              alt={index}
-                                          />
-                                          <FlatButton
-                                              label="删除"
-                                              primary={true}
-                                              icon={<ActionDelete/>}
-                                              onTouchTap={()=>{this.removeFile(index)}}
-                                              alt={index}
-                                          />
+                                      <TableRowColumn colSpan="1" style={styles.tableRightColumn} id={index}>
+                                          <IconButton
+                                              iconStyle={{color : 'rgb(0, 188, 212)'}}
+                                              tooltip="Download"
+                                              // eslint-disable-next-line
+                                              tooltipPosition="center-center"
+                                              onTouchTap={()=>{this.downloadFile(index)}}>
+                                              <FileFileDownload/>
+                                          </IconButton>
+                                          <IconButton
+                                              iconStyle={{color : 'rgb(0, 188, 212)'}}
+                                              tooltip="Rename"
+                                              // eslint-disable-next-line
+                                              tooltipPosition="center-center"
+                                              onTouchTap={()=>{this.renameFile(index)}}>
+                                              <ActionBuild/>
+                                          </IconButton>
+                                          <IconButton
+                                              iconStyle={{color : 'rgb(0, 188, 212)'}}
+                                              tooltip="Delete"
+                                              // eslint-disable-next-line
+                                              tooltipPosition="center-center"
+                                              onTouchTap={()=>{this.removeFile(index)}}>
+                                              <ActionDelete/>
+                                          </IconButton>
+                                          {/*<FlatButton*/}
+                                              {/*label="Download"*/}
+                                              {/*primary={true}*/}
+                                              {/*icon={<FileFileDownload/>}*/}
+                                              {/*onTouchTap={()=>{this.downloadFile(index)}}*/}
+                                          {/*/>*/}
+                                          {/*<FlatButton*/}
+                                              {/*label="Rename"*/}
+                                              {/*primary={true}*/}
+                                              {/*icon={<ActionBuild/>}*/}
+                                              {/*onTouchTap={()=>{this.renameFile(index)}}*/}
+                                          {/*/>*/}
+                                          {/*<FlatButton*/}
+                                              {/*label="Delete"*/}
+                                              {/*primary={true}*/}
+                                              {/*icon={<ActionDelete/>}*/}
+                                              {/*onTouchTap={()=>{this.removeFile(index)}}*/}
+                                          {/*/>*/}
                                       </TableRowColumn>
                                   </TableRow>
                               ))}
@@ -576,34 +673,42 @@ class App extends React.Component {
 
                       <CardActions>
                           <RaisedButton
-                              label="上传"
+                              label="Upload"
                               style={styles.button}
                               containerElement="label"
                               primary={true}
                               onTouchTap={this.openUploadDialog}
                               icon={<ActionBackup/>}/>
                           <RaisedButton
-                              label="刷新"
+                              label="Refresh"
                               style={styles.button}
                               containerElement="label"
                               primary={true}
                               onTouchTap={this.getFileList}
-                              icon={<NotificationSync/>}/>
+                              icon={<NavigationRefresh/>}/>
+                          <RaisedButton
+                              label="Format"
+                              style={styles.button}
+                              containerElement="label"
+                              primary={true}
+                              onTouchTap={this.formatFileSystem}
+                              icon={<ActionRestore/>}/>
                           <div style={{float:'right', marginTop:12}}>
-                            <FlatButton  primary={true} label="上一页" onTouchTap={this.previousPage} disabled={this.state.disablePreviousButton} />
+                            <FlatButton  primary={true} label="PREVIOUS" onTouchTap={this.previousPage} disabled={this.state.disablePreviousButton} />
                             {this.state.current_page}/{this.state.pages_num || 1}
-                            <FlatButton style={{textAlign : 'right'}}  primary={true} label="下一页" onTouchTap={this.nextPage} disabled={this.state.disableNextButton} />
+                            <FlatButton style={{textAlign : 'right', minWidth : 0}}  primary={true} label="NEXT" onTouchTap={this.nextPage} disabled={this.state.disableNextButton} />
                           </div>
                           <div style={{clear:'both'}}/>
                       </CardActions>
-                      <div style={{textAlign : 'right', color : 'rgba(0, 0, 0, 0.298039)', margin: '0px 32px 16px 0px'}}>
-                          {'已使用空间 ' + this.state.used_space + 'G | 总空间大小 ' +　this.state.capacity + 'G'}
+                      <div style={{textAlign : 'right', color : 'rgba(0, 0, 0, 0.6)', margin: '0px 32px 16px 0px'}}>
+                          {'Used-Space : ' + this.state.used_space + 'G | Capacity : ' +　this.state.capacity + 'G'}
                       </div>
                   </div>
                 </Card>
                 <UploadFileDialog ref="Dialog" onUpload={this.showProgress} onSuccess={this.hiddenProgress}/>
                 <RenameFileDialog ref="RenameDialog" onSuccess={this.hiddenProgress}/>
                 <DeleteFileDialog ref="DeleteDialog" onSuccess={this.hiddenProgress}/>
+                <FormatDialog ref="FormatDialog" onSuccess={this.hiddenProgress}/>
             </div>
         );
     }
