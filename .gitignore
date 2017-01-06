@@ -1,0 +1,11 @@
+# NovaStar
+
+# Webstorm Project Folder
+.idea/
+
+# npm package
+node_modules/
+
+# Optimizing package
+build/
+
