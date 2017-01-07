@@ -89,24 +89,6 @@ const API = {
     SpaceStatus : URL + '/space',
 };
 
-let sample = [
-    {
-        id : -1,
-        name : 'a.txt',
-        size : '2KB',
-        uploadTime : '2016-12-29 18:56:00',
-    },
-];
-for(let i = 0; i < 49; i++) {
-    let d = new Date();
-    sample.push({
-        id : i,
-        name : (Math.random() * 20).toFixed(0) + '.txt',
-        size : (Math.random() * 256).toFixed(0) + 'MB',
-        uploadTime : d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + ' ' + d.getHours() + ':' + d.getMinutes() + ':' + d.getSeconds(),
-    });
-}
-
 class FormatDialog extends React.Component {
     state = {
         open: false,
@@ -561,17 +543,9 @@ class App extends React.Component {
 
     componentDidMount() {
         this.getFileList();
-        setInterval(this.getFileList, 16000);
+        setInterval(this.getFileList, 32000);
         this.getNodeStatus();
         this.handleChange(null, null, this.state.blockSize);
-        // let current_list = sample.slice(0, 10);
-        // let pages_num = parseInt((sample.length / 10), 10) + ((sample.length % 10 > 0) ? 1 : 0);
-        // this.setState({
-        //     file_list : sample,
-        //     pages_num : pages_num,
-        //     current_list : current_list,
-        //     disableNextButton : pages_num <= 1,
-        // });
     }
 
     previousPage= () => {

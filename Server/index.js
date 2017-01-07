@@ -56,8 +56,6 @@ function getAllFilesInfo() {
         port: MASTER_PORT
     };
     var req = http.request(opts, function(res) {
-        //console.log(`STATUS: ${res.statusCode}`);
-        //console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
         res.setEncoding('utf8');
         res.on('data', (chunk) => {
             receiveData += chunk;
@@ -340,7 +338,7 @@ var server = http.createServer(function(req, res) {
                         const postData = {
                             name: file.name,
                             fileSize: file.size,
-                            blockSize: 64,
+                            blockSize: parseInt(BLOCK_SIZE / 1024 / 1024, 10),
                             blockNum: 1
                         };
                         var info = '';
@@ -430,7 +428,7 @@ var server = http.createServer(function(req, res) {
                             const postData = {
                                 name: file.name,
                                 fileSize: file.size,
-                                blockSize: 64,
+                                blockSize: parseInt(BLOCK_SIZE / 1024 / 1024, 10),
                                 blockNum: names.length
                             };
                             var info = '';
@@ -479,7 +477,7 @@ var server = http.createServer(function(req, res) {
                                             });
 
                                             _client.on('transfer', (buffer, uploaded, total) => {
-                                                console.log('[INFO] [SCP] ' + (key + 1) + ' 份的 ' + part + ' 部分 ' + uploaded + ' / ' + total);
+                                                console.log('[INFO] [SCP] 第' + (key + 1) + ' 份的 ' + part + ' 部分 ' + uploaded + ' / ' + total);
                                             });
 
                                             console.log('[INFO] 正在上传第 ' + (key + 1) + ' 份的 ' + part + ' 部分');
@@ -569,7 +567,6 @@ var server = http.createServer(function(req, res) {
                                 function(err) {
                                     if (err) console.log(err);
                                     else {
-                                        status = true;
                                         res.writeHead(200, { 'content-type': 'text/plain' });
                                         res.end('http://localhost:6740/public/' + file.fileName);
                                     }
@@ -792,11 +789,11 @@ var server = http.createServer(function(req, res) {
 
                 requestNodeStatus((receiveData) => {
                     var status = [];
-                    status.push(receiveData['Slave0']);
-                    status.push(receiveData['Slave1']);
-                    status.push(receiveData['Slave2']);
-                    status.push(receiveData['Slave3']);
-                    status.push(receiveData['Slave4']);
+                    status.push(receiveData['Node-1']);
+                    status.push(receiveData['Node-2']);
+                    status.push(receiveData['Node-3']);
+                    status.push(receiveData['Node-4']);
+                    status.push(receiveData['Node-5']);
                     // for (var slave in receiveData) {
                     //     status.push(receiveData[slave]);
                     // }

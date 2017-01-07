@@ -2,8 +2,8 @@
  * Created by tsengkasing on 1/6/2017.
  */
 import React from 'react';
-import {Card, CardActions} from 'material-ui/Card';
-import {Table, TableBody, TableFooter, TableHeader, TableHeaderColumn, TableRow, TableRowColumn}
+import {Card} from 'material-ui/Card';
+import {Table, TableBody, TableHeader, TableHeaderColumn, TableRow, TableRowColumn}
     from 'material-ui/Table';
 import Dialog from 'material-ui/Dialog';
 import FlatButton from 'material-ui/FlatButton';
@@ -31,6 +31,10 @@ const styles = {
     },
     button: {
         margin: 12,
+    },
+    dialogWidth : {
+        width : '100%',
+        maxWidth : '896px',
     },
 };
 
@@ -88,6 +92,7 @@ export default class FileBlocksDetail extends React.Component {
                     title="File Detail"
                     actions={actions}
                     modal={false}
+                    contentStyle={styles.dialogWidth}
                     open={this.state.open}
                     onRequestClose={this.handleClose}
                     autoScrollBodyContent={true}
@@ -108,12 +113,13 @@ export default class FileBlocksDetail extends React.Component {
                                         displaySelectAll={false}
                                         adjustForCheckbox={false}>
                                         <TableRow>
-                                            <TableHeaderColumn colSpan="4" style={{fontSize : '2vh', textAlign : 'center'}}>
+                                            <TableHeaderColumn colSpan="5" style={{fontSize : '2vh', textAlign : 'center'}}>
                                                 Block-{index + 1}
                                             </TableHeaderColumn>
                                         </TableRow>
                                         <TableRow>
                                             <TableHeaderColumn colSpan="2" style={{fontSize : '1.5vh'}}>Block Name</TableHeaderColumn>
+                                            <TableHeaderColumn style={{fontSize : '1.5vh', textAlign : 'center'}}>Block Size</TableHeaderColumn>
                                             <TableHeaderColumn style={{fontSize : '1.5vh', textAlign : 'center'}}>Node Name</TableHeaderColumn>
                                             <TableHeaderColumn style={{fontSize : '1.5vh', textAlign : 'right'}}>Node Address</TableHeaderColumn>
                                         </TableRow>
@@ -124,6 +130,7 @@ export default class FileBlocksDetail extends React.Component {
                                         {block.map((_block, _index) => (
                                             <TableRow key={_index}>
                                                 <TableRowColumn colSpan="2">{_block.blockName}</TableRowColumn>
+                                                <TableRowColumn style={{textAlign : 'center'}}>{_block.blockSize}</TableRowColumn>
                                                 <TableRowColumn style={{textAlign : 'center'}}>{_block.slaveName}</TableRowColumn>
                                                 <TableRowColumn style={{textAlign : 'right'}}>{_block.slaveIP}</TableRowColumn>
                                             </TableRow>
