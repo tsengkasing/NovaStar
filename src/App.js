@@ -349,7 +349,7 @@ class UploadFileDialog extends React.Component {
         xhr.done(function(data) {
             console.log(data);
             if(!data) alert('Duplicated File Name');
-            setTimeout(this.props.onSuccess, 5000);
+            this.props.onSuccess();
         }.bind(this));
         //var submit = $('#submitBtn');
         //submit.click();
@@ -433,7 +433,7 @@ class App extends React.Component {
             error : function(xhr, textStatus) {
                 this.setState({slaves : [null, null, null, null, null]});
                 console.log(xhr.status + '\n' + textStatus + '\n');
-            }
+            }.bind(this)
         });
         setTimeout(this.getNodeStatus, 16000);
     };
@@ -467,13 +467,19 @@ class App extends React.Component {
             contentType: 'application/json;charset=UTF-8',
             success : function(data, textStatus, jqXHR) {
                 console.log(data);
-                let current_list = data.slice(0, 10);
-                let pages_num = parseInt((data.length / 10), 10) + ((data.length % 10 > 0) ? 1 : 0);
+
+                const list = data.file_list;
+
+                let current_list = list.slice(0, 10);
+                let pages_num = parseInt((list.length / 10), 10) + ((list.length % 10 > 0) ? 1 : 0);
                 this.setState({
-                    file_list : data,
+                    blockSize : data.BLOCK_SIZE,
+                    file_list : list,
                     pages_num : pages_num,
                     current_list : current_list,
+                    current_page : 1,
                     disableNextButton : pages_num <= 1,
+                    disablePreviousButton : true
                 });
                 this.getSpaceStatus();
             }.bind(this),
@@ -555,6 +561,7 @@ class App extends React.Component {
 
     componentDidMount() {
         this.getFileList();
+        setInterval(this.getFileList, 16000);
         this.getNodeStatus();
         this.handleChange(null, null, this.state.blockSize);
         // let current_list = sample.slice(0, 10);

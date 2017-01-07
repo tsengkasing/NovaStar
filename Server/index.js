@@ -13,7 +13,7 @@ var formidable = require('formidable'),
     httpProxy = require('http-proxy'),
     SFTPClient = require('sftp-promises');
 //var Client = require('scp2').Client;
-var BLOCK_SIZE = 2 * 1024 * 1024;
+var BLOCK_SIZE = 32 * 1024 * 1024;
 
 const OUTPUT_FOLDER = './page/public/';
 
@@ -42,6 +42,8 @@ const API = {
 
 var file_list = [];
 
+var ALIVE_NODE_NUM = 0;
+
 //===============================================================
 //函数
 
@@ -67,7 +69,7 @@ function getAllFilesInfo() {
             }catch (err) {
                 console.log(err); return;
             }
-            console.log('[INFO] [MASTER] File List');
+            //console.log('[INFO] [MASTER] File List');
             //console.log(receiveData);
             file_list = receiveData;
         });
@@ -160,6 +162,10 @@ function requestNodeStatus(callback) {
                 receiveData = JSON.parse(receiveData);
             }catch (err) {
                 console.log(err); return;
+            }
+            ALIVE_NODE_NUM = 0;
+            for(var node in receiveData) {
+            	if(receiveData[node]) ALIVE_NODE_NUM++;
             }
             console.log('[INFO] [MASTER] NodeStatus ' + JSON.stringify(receiveData));
             if (res.statusCode == 200)
@@ -292,9 +298,9 @@ var server = http.createServer(function(req, res) {
                 var valid = true;
 
                 form.on('end', function() {
-                    res.writeHead(200, { 'content-type': 'application/json' });
-                    var result = true;
-                    res.end(JSON.stringify(result));
+                    // res.writeHead(200, { 'content-type': 'application/json' });
+                    // var result = true;
+                    // res.end(JSON.stringify(result));
                 });
 
                 form.parse(req, function(err, fields, files) {});
@@ -330,7 +336,6 @@ var server = http.createServer(function(req, res) {
 
                     if (file.size <= BLOCK_SIZE) {
                         console.log('[INFO] 文件小于' + (BLOCK_SIZE / 1024 / 1024).toFixed(0) + 'M 无需分割');
-                        var uploaded = [false, false, false];
 
                         const postData = {
                             name: file.name,
@@ -348,17 +353,21 @@ var server = http.createServer(function(req, res) {
                                 'Content-Type': 'application/json'
                             }
                         };
-                        var req = http.request(opts, function(res) {
-                            res.setEncoding('utf8');
-                            res.on('data', (chunk) => { info += chunk; });
-                            res.on('end', () => {
+                        var req = http.request(opts, function(_res) {
+                            _res.setEncoding('utf8');
+                            _res.on('data', (chunk) => { info += chunk; });
+                            _res.on('end', () => {
                                 var Client = require('scp2').Client;
                                 info = JSON.parse(info);
                                 console.log('[INFO] [MASTER] Slave Target');
                                 console.log(info);
                                 const blocks = info.block1;
+                                var uploaded = [];
+                                for(var s = 0; s < blocks.length; s++) {
+                                	uploaded.push(false);
+                                }
 
-                                for (var i = 0; i < 3; i++) {
+                                for (var i = 0; i < blocks.length; i++) {
 
                                     console.log('[INFO] 开始上传第' + i + '份');
 
@@ -373,7 +382,7 @@ var server = http.createServer(function(req, res) {
                                     });
 
                                     _client.on('transfer', (buffer, uploaded, total) => {
-                                        console.log('[INFO] [SCP] ' + uploaded + ' / ' + total);
+                                        console.log('[INFO] [SCP] 第' + (key + 1) + '份' + uploaded + ' / ' + total);
                                     });
 
                                     _client.upload(file.path, blocks[key].absPath,
@@ -389,6 +398,10 @@ var server = http.createServer(function(req, res) {
                                                         console.log('[INFO] Delete Temp File');
                                                         fs.unlinkSync(file.path); //删除本地缓存文件
                                                     });
+                                                    console.log('[INFO] Upload File Done!');
+                                                    res.writeHead(200, { 'content-type': 'application/json' });
+                                                    var result = true;
+                                                    res.end(JSON.stringify(result));
                                                 }
                                             }
                                         });
@@ -413,16 +426,6 @@ var server = http.createServer(function(req, res) {
                             console.log('[INFO] 分割完成 共 ' + names.length + ' 份');
 
                             var file_path = [];
-
-                            //记录每个冗余文件每个部分上传成功状态
-                            var uploaded = [];
-                            for (var k = 0; k < 3; k++) {
-                                var redundant = [];
-                                for (var j = 0; j < names.length; j++) {
-                                    redundant.push(false);
-                                }
-                                uploaded.push(redundant);
-                            }
 
                             const postData = {
                                 name: file.name,
@@ -450,13 +453,21 @@ var server = http.createServer(function(req, res) {
                                     console.log('[INFO] [MASTER] Slave Target');
                                     console.log('[INFO] FileID' + info.fileId);
 
-                                    for (var j = 0; j < names.length; j++) {
 
+		                            //记录每个冗余文件每个部分上传成功状态
+									var uploaded = [];
+
+                                    for (var j = 0; j < names.length; j++) {
+                                    	//记录上传个数 用于判断所有部分上传完的时候
+                                    	var PART_UPLOADED = [];
+                                    	
                                         const part = j + 1;
                                         const block = info['block' + part];
                                         console.log(block);
 
-                                        for (var i = 0; i < 3; i++) {
+                                        for (var i = 0; i < block.length; i++) {
+                                        	//记录上传个数 用于判断所有部分上传完的时候
+                                        	PART_UPLOADED.push(false);
 
                                             const key = i;
                                             var _client = new Client({
@@ -468,11 +479,7 @@ var server = http.createServer(function(req, res) {
                                             });
 
                                             _client.on('transfer', (buffer, uploaded, total) => {
-                                                console.log('[INFO] [SCP] ' + uploaded + ' / ' + total);
-                                            });
-
-                                            _client.on('transfer', (buffer, uploaded, total) => {
-                                                console.log('[INFO] [SCP] ' + uploaded + ' / ' + total);
+                                                console.log('[INFO] [SCP] ' + (key + 1) + ' 份的 ' + part + ' 部分 ' + uploaded + ' / ' + total);
                                             });
 
                                             console.log('[INFO] 正在上传第 ' + (key + 1) + ' 份的 ' + part + ' 部分');
@@ -484,14 +491,24 @@ var server = http.createServer(function(req, res) {
                                                         console.log(err);
                                                     } else {
                                                         console.log('[INFO] 第 ' + (key + 1) + ' 份的第 ' + part + ' 部分 上传完成');
-                                                        uploaded[key][part - 1] = true;
-                                                        if (checkArray(uploaded[0]) && checkArray(uploaded[1]) && checkArray(uploaded[2])) {
+                                                        uploaded[part - 1][key] = true;
+                                                        var uploaded_status = true;
+
+                                                        for(var s = 0; s < uploaded.length; s++) {
+                                                         	uploaded_status &= checkArray(uploaded[s]);
+                                                        }
+                                                        console.log(JSON.stringify(uploaded));
+                                                        if (uploaded_status) {
                                                             requestVerifyFile(info.fileId, () => {
                                                                 console.log('[INFO] Delete Temp File');
                                                                 for (var k = 0; k < names.length; k++) {
                                                                     fs.unlinkSync(names[k]); //删除本地缓存分割文件
                                                                 }
                                                                 fs.unlinkSync(file.path); //删除本地缓存文件
+                                                                console.log('[INFO] Upload File Done!');
+                                                                res.writeHead(200, { 'content-type': 'application/json' });
+                                                                var result = true;
+                                                                res.end(JSON.stringify(result));
                                                             });
 
                                                         }
@@ -499,6 +516,7 @@ var server = http.createServer(function(req, res) {
                                                 });
 
                                         }
+                                        uploaded.push(PART_UPLOADED);
                                     }
 
                                 });
@@ -629,8 +647,14 @@ var server = http.createServer(function(req, res) {
                     fileBlocks : file.allFileBlocks,
                     realBlockCount : file.realBlockCount
                 }));
+
+                const info = {
+                    BLOCK_SIZE : parseInt(BLOCK_SIZE / 1024 / 1024, 10),
+                    file_list : file_list_simple
+                };
+
                 res.writeHead(200, { 'content-type': 'application/json' });
-                res.end(JSON.stringify(file_list_simple));
+                res.end(JSON.stringify(info));
             }
             break;
         case '/api/delete':
@@ -846,3 +870,6 @@ var ProxyServer = http.createServer(function(req, res) {
 console.log("[INFO] Web Server listening on port 6740");
 console.log("[INFO] Proxy Server listening on port 4312");
 ProxyServer.listen(4312);
+
+//以上是代理服务器
+//=============================================================================================
