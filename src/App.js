@@ -452,16 +452,15 @@ class App extends React.Component {
 
                 const list = data.file_list;
 
-                let current_list = list.slice(0, 10);
+                let current_list = list.slice((this.state.current_page - 1) * 10, (this.state.current_page - 1) * 10 + 10);
                 let pages_num = parseInt((list.length / 10), 10) + ((list.length % 10 > 0) ? 1 : 0);
                 this.setState({
                     blockSize : data.BLOCK_SIZE,
                     file_list : list,
                     pages_num : pages_num,
                     current_list : current_list,
-                    current_page : 1,
-                    disableNextButton : pages_num <= 1,
-                    disablePreviousButton : true
+                    disableNextButton: ((parseInt(this.state.current_page, 10)) === pages_num),
+                    disablePreviousButton: ((parseInt(this.state.current_page, 10)) === 1),
                 });
                 this.getSpaceStatus();
             }.bind(this),

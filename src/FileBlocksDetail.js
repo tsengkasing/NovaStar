@@ -130,7 +130,7 @@ export default class FileBlocksDetail extends React.Component {
                                         {block.map((_block, _index) => (
                                             <TableRow key={_index}>
                                                 <TableRowColumn colSpan="2">{_block.blockName}</TableRowColumn>
-                                                <TableRowColumn style={{textAlign : 'center'}}>{_block.blockSize}</TableRowColumn>
+                                                <TableRowColumn style={{textAlign : 'center'}}>{_block.blockSize}M</TableRowColumn>
                                                 <TableRowColumn style={{textAlign : 'center'}}>{_block.slaveName}</TableRowColumn>
                                                 <TableRowColumn style={{textAlign : 'right'}}>{_block.slaveIP}</TableRowColumn>
                                             </TableRow>

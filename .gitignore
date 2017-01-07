@@ -9,6 +9,7 @@ node_modules/
 # Optimizing package
 build/
 Server/page/
+Server/temp/
 *.rar
 
 # test

@@ -1,5 +1,5 @@
 /*
- *  created by tsengkasing ar 2016/12/29
+ *  created by tsengkasing at 2016/12/29
  */
 
 var formidable = require('formidable'),
@@ -380,29 +380,33 @@ var server = http.createServer(function(req, res) {
                                     });
 
                                     _client.on('transfer', (buffer, uploaded, total) => {
-                                        console.log('[INFO] [SCP] 第' + (key + 1) + '份' + uploaded + ' / ' + total);
+                                        console.log('[INFO] [SCP] 第' + (key + 1) + '份 ' + uploaded + ' / ' + total);
                                     });
 
-                                    _client.upload(file.path, blocks[key].absPath,
-                                        function(err) {
-                                            if (err) {
-                                                console.log('[ERROR] 第' + (key + 1) + '份 上传失败');
-                                                console.log(err);
-                                            } else {
-                                                console.log('[INFO] 第' + (key + 1) + '份 上传完成');
-                                                uploaded[key] = true;
-                                                if (checkArray(uploaded)) {
-                                                    requestVerifyFile(info.fileId, () => {
-                                                        console.log('[INFO] Delete Temp File');
-                                                        fs.unlinkSync(file.path); //删除本地缓存文件
-                                                    });
-                                                    console.log('[INFO] Upload File Done!');
-                                                    res.writeHead(200, { 'content-type': 'application/json' });
-                                                    var result = true;
-                                                    res.end(JSON.stringify(result));
+                                    try {
+                                        _client.upload(file.path, blocks[key].absPath,
+                                            function (err) {
+                                                if (err) {
+                                                    console.log('[ERROR] 第' + (key + 1) + '份 上传失败');
+                                                    console.log(err);
+                                                } else {
+                                                    console.log('[INFO] 第' + (key + 1) + '份 上传完成');
+                                                    uploaded[key] = true;
+                                                    if (checkArray(uploaded)) {
+                                                        requestVerifyFile(info.fileId, () => {
+                                                            console.log('[INFO] Delete Temp File');
+                                                            fs.unlinkSync(file.path); //删除本地缓存文件
+                                                            console.log('[INFO] Upload File Done!');
+                                                            res.writeHead(200, {'content-type': 'application/json'});
+                                                            res.end(JSON.stringify(true));
+                                                        });
+
+                                                    }
                                                 }
-                                            }
-                                        });
+                                            });
+                                    }catch (err){
+                                        console.log('[ERROR] Upload Fail');
+                                    }
                                 }
 
 
@@ -482,36 +486,41 @@ var server = http.createServer(function(req, res) {
 
                                             console.log('[INFO] 正在上传第 ' + (key + 1) + ' 份的 ' + part + ' 部分');
 
-                                            _client.upload(names[j], block[key].absPath,
-                                                function(err) {
-                                                    if (err) {
-                                                        console.log('[ERROR] 第 ' + (key + 1) + ' 份的第 ' + part + ' 部分 上传失败');
-                                                        console.log(err);
-                                                    } else {
-                                                        console.log('[INFO] 第 ' + (key + 1) + ' 份的第 ' + part + ' 部分 上传完成');
-                                                        uploaded[part - 1][key] = true;
-                                                        var uploaded_status = true;
+                                            try {
+                                                _client.upload(names[j], block[key].absPath,
+                                                    function (err) {
+                                                        if (err) {
+                                                            console.log('[ERROR] 第 ' + (key + 1) + ' 份的第 ' + part + ' 部分 上传失败');
+                                                            console.log(err);
+                                                        } else {
+                                                            console.log('[INFO] 第 ' + (key + 1) + ' 份的第 ' + part + ' 部分 上传完成');
+                                                            uploaded[part - 1][key] = true;
+                                                            var uploaded_status = true;
 
-                                                        for(var s = 0; s < uploaded.length; s++) {
-                                                         	uploaded_status &= checkArray(uploaded[s]);
-                                                        }
-                                                        console.log(JSON.stringify(uploaded));
-                                                        if (uploaded_status) {
-                                                            requestVerifyFile(info.fileId, () => {
-                                                                console.log('[INFO] Delete Temp File');
-                                                                for (var k = 0; k < names.length; k++) {
-                                                                    fs.unlinkSync(names[k]); //删除本地缓存分割文件
-                                                                }
-                                                                fs.unlinkSync(file.path); //删除本地缓存文件
-                                                                console.log('[INFO] Upload File Done!');
-                                                                res.writeHead(200, { 'content-type': 'application/json' });
-                                                                var result = true;
-                                                                res.end(JSON.stringify(result));
-                                                            });
+                                                            for (var s = 0; s < uploaded.length; s++) {
+                                                                uploaded_status &= checkArray(uploaded[s]);
+                                                            }
+                                                            console.log(JSON.stringify(uploaded));
+                                                            if (uploaded_status) {
+                                                                requestVerifyFile(info.fileId, () => {
+                                                                    console.log('[INFO] Delete Temp File');
+                                                                    for (var k = 0; k < names.length; k++) {
+                                                                        fs.unlinkSync(names[k]); //删除本地缓存分割文件
+                                                                    }
+                                                                    fs.unlinkSync(file.path); //删除本地缓存文件
+                                                                    console.log('[INFO] Upload File Done!');
+                                                                    res.writeHead(200, {'content-type': 'application/json'});
+                                                                    var result = true;
+                                                                    res.end(JSON.stringify(result));
+                                                                });
 
+                                                            }
                                                         }
-                                                    }
-                                                });
+                                                    });
+                                            }
+                                            catch(err) {
+                                                console.log('[ERROR] Upload Fail');
+                                            }
 
                                         }
                                         uploaded.push(PART_UPLOADED);
@@ -555,22 +564,26 @@ var server = http.createServer(function(req, res) {
 
                         if (file.realBlockCount == 1) {
                             const key = 0;
-                            client.scp({
-                                    //host: blocks[key].slaveIP,
-                                    host: MASTER_HOSTNAME,
-                                    username: blocks[key].username,
-                                    password: blocks[key].password,
-                                    path: blocks[key].absPath,
-                                    port: SLAVE[blocks[key].slaveIP]
-                                },
-                                OUTPUT_FOLDER + file.fileName,
-                                function(err) {
-                                    if (err) console.log(err);
-                                    else {
-                                        res.writeHead(200, { 'content-type': 'text/plain' });
-                                        res.end('http://localhost:6740/public/' + file.fileName);
-                                    }
-                                });
+                            try {
+                                client.scp({
+                                        //host: blocks[key].slaveIP,
+                                        host: MASTER_HOSTNAME,
+                                        username: blocks[key].username,
+                                        password: blocks[key].password,
+                                        path: blocks[key].absPath,
+                                        port: SLAVE[blocks[key].slaveIP]
+                                    },
+                                    OUTPUT_FOLDER + file.fileName,
+                                    function (err) {
+                                        if (err) console.log(err);
+                                        else {
+                                            res.writeHead(200, {'content-type': 'text/plain'});
+                                            res.end('http://localhost:6740/public/' + file.fileName);
+                                        }
+                                    });
+                            }catch(err) {
+                                console.log('[ERROR] Download Fail');
+                            }
                         } else {
                             var block = [];
                             var downloaded = [];
@@ -591,36 +604,40 @@ var server = http.createServer(function(req, res) {
                                     path: blocks[key].absPath,
                                     port: SLAVE[blocks[key].slaveIP]
                                 });
-                                client.scp({
-                                    //host: blocks[key].slaveIP,
-                                    host: MASTER_HOSTNAME,
-                                    username: blocks[key].username,
-                                    password: blocks[key].password,
-                                    path: blocks[key].absPath,
-                                    port: SLAVE[blocks[key].slaveIP]
-                                }, block[key], function(err) {
-                                    if (err) {
-                                        console.log('[ERROR] 文件第 ' + (key + 1) + ' 部分下载失败');
-                                        console.log(err);
-                                    } else {
-                                        downloaded[key] = true;
-                                        if (checkArray(downloaded)) {
-                                            splitFile.mergeFiles(block, OUTPUT_FOLDER + file.fileName, function(err, filename) {
-                                                if (err) {
-                                                    console.log('[ERROR] 文件合并失败');
-                                                    console.log(err);
-                                                    return;
-                                                }
-                                                console.log('[INFO] 合并成功 文件路径: ' + filename);
-                                                // for (var c = 0; c < block.length; c++) {
-                                                //     fs.unlinkSync(block[c]); //删除本地缓存分割文件
-                                                // }
-                                                res.writeHead(200, { 'content-type': 'text/plain' });
-                                                res.end('http://localhost:6740/public/' + file.fileName);
-                                            });
+                                try {
+                                    client.scp({
+                                        //host: blocks[key].slaveIP,
+                                        host: MASTER_HOSTNAME,
+                                        username: blocks[key].username,
+                                        password: blocks[key].password,
+                                        path: blocks[key].absPath,
+                                        port: SLAVE[blocks[key].slaveIP]
+                                    }, block[key], function (err) {
+                                        if (err) {
+                                            console.log('[ERROR] 文件第 ' + (key + 1) + ' 部分下载失败');
+                                            console.log(err);
+                                        } else {
+                                            downloaded[key] = true;
+                                            if (checkArray(downloaded)) {
+                                                splitFile.mergeFiles(block, OUTPUT_FOLDER + file.fileName, function (err, filename) {
+                                                    if (err) {
+                                                        console.log('[ERROR] 文件合并失败');
+                                                        console.log(err);
+                                                        return;
+                                                    }
+                                                    console.log('[INFO] 合并成功 文件路径: ' + filename);
+                                                    // for (var c = 0; c < block.length; c++) {
+                                                    //     fs.unlinkSync(block[c]); //删除本地缓存分割文件
+                                                    // }
+                                                    res.writeHead(200, {'content-type': 'text/plain'});
+                                                    res.end('http://localhost:6740/public/' + file.fileName);
+                                                });
+                                            }
                                         }
-                                    }
-                                });
+                                    });
+                                }catch (err) {
+                                    console.log('[ERROR] Download Fail');
+                                }
                             }
                         }
 
@@ -826,6 +843,7 @@ var server = http.createServer(function(req, res) {
 
 });
 console.log('[INFO] Background Server listening on port 4708');
+server.setTimeout(0);
 server.listen(4708);
 
 //=============================================================================================
@@ -860,7 +878,7 @@ var ProxyServer = http.createServer(function(req, res) {
     if (target == 'api') {
         proxy.web(req, res, { target: 'http://localhost:4708' });
     } else {
-        proxy.web(req, res, { target: 'http://localhost:6740' });
+        proxy.web(req, res, { target: 'http://localhost:3000' });
     }
 });
 
