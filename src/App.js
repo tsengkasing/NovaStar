@@ -453,7 +453,7 @@ class App extends React.Component {
                 const list = data.file_list;
 
                 let current_list = list.slice((this.state.current_page - 1) * 10, (this.state.current_page - 1) * 10 + 10);
-                let pages_num = parseInt((list.length / 10), 10) + ((list.length % 10 > 0) ? 1 : 0);
+                let pages_num = parseInt((list.length / 10), 10) + ((list.length % 10 > 0) ? 1 : 0) || 1;
                 this.setState({
                     blockSize : data.BLOCK_SIZE,
                     file_list : list,
@@ -545,6 +545,15 @@ class App extends React.Component {
         setInterval(this.getFileList, 32000);
         this.getNodeStatus();
         this.handleChange(null, null, this.state.blockSize);
+        // this.setState({
+        //     current_list : [
+        //         {
+        //             name : '2312321',
+        //             size : '221MB',
+        //             uploadTime : '2015-12-12 04:03:23'
+        //         },
+        //     ]
+        // });
     }
 
     previousPage= () => {
@@ -572,10 +581,10 @@ class App extends React.Component {
     render() {
         return (
             <div>
-              <div className="title">
-                  <h1>NovaStar</h1>
-                  <h2>A Tiny Flat Distributed File System</h2>
-              </div>
+              {/*<div className="title">*/}
+                  {/*<h1>NovaStar</h1>*/}
+                  {/*<h2>A Tiny Flat Distributed File System</h2>*/}
+              {/*</div>*/}
                 {this.state.progress ? <LinearProgress mode="indeterminate" color="#2EFF99" /> : null}
                 <Card>
                   <div style={styles.card}>

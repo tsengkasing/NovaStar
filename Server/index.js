@@ -811,8 +811,8 @@ var server = http.createServer(function(req, res) {
                     status.push(receiveData['Node-3']);
                     status.push(receiveData['Node-4']);
                     status.push(receiveData['Node-5']);
-                    // for (var slave in receiveData) {
-                    //     status.push(receiveData[slave]);
+                    // for (var node in receiveData) {
+                    //     status.push(receiveData[node]);
                     // }
                     res.writeHead(200, { 'content-type': 'application/json' });
                     res.end(JSON.stringify(status));
