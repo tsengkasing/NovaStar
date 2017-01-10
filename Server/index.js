@@ -3,8 +3,8 @@
  */
 
 var formidable = require('formidable'),
+    queuefun = require('queue-fun'),
     http = require('http'),
-    util = require('util'),
     fs = require('fs'),
     splitFile = require('split-file'),
     client = require('scp2'),
@@ -19,6 +19,14 @@ const OUTPUT_FOLDER = './page/public/';
 
 const MASTER_HOSTNAME = 'novemser.vicp.io';
 const MASTER_PORT = 521;
+
+const SLAVE_HOSTNAME = {
+    '192.168.52.132': 'novemser.vicp.io',
+    '192.168.52.133': 'novemser.vicp.io',
+    '192.168.52.134': 'novemser.vicp.io',
+    '192.168.52.139': 'novemser.vicp.io',
+    '192.168.52.140': 'novemser.vicp.io'
+};
 
 const SLAVE = {
     '192.168.52.132': 7000,
@@ -42,10 +50,31 @@ const API = {
 
 var file_list = [];
 
-var ALIVE_NODE_NUM = 0;
-
 //===============================================================
 //函数
+function getOptions(blocks, key) {
+    return {
+        port: SLAVE[blocks[key].slaveIP],
+        host : SLAVE_HOSTNAME[blocks[key].slaveIP],
+        username: blocks[key].username,
+        password: blocks[key].password,
+    };
+}
+
+function getDownloadOptions(blocks, key) {
+    var options = getOptions(blocks, key);
+    options.path = blocks[key].absPath;
+    return options;
+}
+
+function getDeleteOptions(block) {
+    return {
+        port: SLAVE[block.slaveIP],
+        host : SLAVE_HOSTNAME[block.slaveIP],
+        username: block.username,
+        password: block.password,
+    };
+}
 
 function getAllFilesInfo() {
     var receiveData = '';
@@ -160,10 +189,6 @@ function requestNodeStatus(callback) {
                 receiveData = JSON.parse(receiveData);
             }catch (err) {
                 console.log(err); return;
-            }
-            ALIVE_NODE_NUM = 0;
-            for(var node in receiveData) {
-            	if(receiveData[node]) ALIVE_NODE_NUM++;
             }
             console.log('[INFO] [MASTER] NodeStatus ' + JSON.stringify(receiveData));
             if (res.statusCode == 200)
@@ -280,7 +305,7 @@ var server = http.createServer(function(req, res) {
 
     var URL = url.parse(req.url);
     var pathName = URL.pathname;
-    console.log('[INFO] 请求路径 ' + pathName);
+    //console.log('[INFO] 请求路径 ' + pathName);
 
     switch (pathName) {
         case '/api/upload':
@@ -371,13 +396,7 @@ var server = http.createServer(function(req, res) {
 
                                     const key = i;
 
-                                    var _client = new Client({
-                                        port: SLAVE[blocks[key].slaveIP],
-                                        //host : blocks[key].slaveIP,
-                                        host: MASTER_HOSTNAME,
-                                        username: blocks[key].username,
-                                        password: blocks[key].password,
-                                    });
+                                    var _client = new Client(getOptions(blocks, key));
 
                                     _client.on('transfer', (buffer, uploaded, total) => {
                                         console.log('[INFO] [SCP] 第' + (key + 1) + '份 ' + uploaded + ' / ' + total);
@@ -427,8 +446,6 @@ var server = http.createServer(function(req, res) {
                             } else console.log(names);
                             console.log('[INFO] 分割完成 共 ' + names.length + ' 份');
 
-                            var file_path = [];
-
                             const postData = {
                                 name: file.name,
                                 fileSize: file.size,
@@ -472,13 +489,15 @@ var server = http.createServer(function(req, res) {
                                         	PART_UPLOADED.push(false);
 
                                             const key = i;
-                                            var _client = new Client({
-                                                port: SLAVE[block[key].slaveIP],
-                                                host: MASTER_HOSTNAME,
-                                                //host : block[key].slaveIP,
-                                                username: block[key].username,
-                                                password: block[key].password,
-                                            });
+                                            // var _client = new Client({
+                                            //     port: SLAVE[block[key].slaveIP],
+                                            //     //host: MASTER_HOSTNAME,
+                                            //     host : SLAVE_HOSTNAME[block[key].slaveIP],
+                                            //     username: block[key].username,
+                                            //     password: block[key].password,
+                                            // });
+
+                                            var _client = new Client(getOptions(block, key));
 
                                             _client.on('transfer', (buffer, uploaded, total) => {
                                                 console.log('[INFO] [SCP] 第' + (key + 1) + ' 份的 ' + part + ' 部分 ' + uploaded + ' / ' + total);
@@ -558,21 +577,23 @@ var server = http.createServer(function(req, res) {
                     });
                     _res.on('end', () => {
                         file = (JSON.parse(file)).file;
-                        console.log('[INFO] [MASTER] File');
+                        //console.log('[INFO] [MASTER] File');
                         //console.log(file);
                         const blocks = file.downloadBlocks;
 
                         if (file.realBlockCount == 1) {
                             const key = 0;
                             try {
-                                client.scp({
-                                        //host: blocks[key].slaveIP,
-                                        host: MASTER_HOSTNAME,
-                                        username: blocks[key].username,
-                                        password: blocks[key].password,
-                                        path: blocks[key].absPath,
-                                        port: SLAVE[blocks[key].slaveIP]
-                                    },
+                                client.scp(
+                                    getDownloadOptions(blocks, key),
+                                    // {
+                                    //     host: SLAVE_HOSTNAME[blocks[key].slaveIP],
+                                    //     //host: MASTER_HOSTNAME,
+                                    //     username: blocks[key].username,
+                                    //     password: blocks[key].password,
+                                    //     path: blocks[key].absPath,
+                                    //     port: SLAVE[blocks[key].slaveIP]
+                                    // },
                                     OUTPUT_FOLDER + file.fileName,
                                     function (err) {
                                         if (err) console.log(err);
@@ -596,23 +617,19 @@ var server = http.createServer(function(req, res) {
                             //console.log(block);
                             for (var k = 0; k < file.realBlockCount; k++) {
                                 const key = k;
-                                console.log({
-                                    //host: blocks[key].slaveIP,
-                                    host: MASTER_HOSTNAME,
-                                    username: blocks[key].username,
-                                    password: blocks[key].password,
-                                    path: blocks[key].absPath,
-                                    port: SLAVE[blocks[key].slaveIP]
-                                });
+
                                 try {
-                                    client.scp({
-                                        //host: blocks[key].slaveIP,
-                                        host: MASTER_HOSTNAME,
-                                        username: blocks[key].username,
-                                        password: blocks[key].password,
-                                        path: blocks[key].absPath,
-                                        port: SLAVE[blocks[key].slaveIP]
-                                    }, block[key], function (err) {
+                                    client.scp(
+                                        getDownloadOptions(blocks, key),
+                                    //     {
+                                    //     host: SLAVE_HOSTNAME[blocks[key].slaveIP],
+                                    //     //host: MASTER_HOSTNAME,
+                                    //     username: blocks[key].username,
+                                    //     password: blocks[key].password,
+                                    //     path: blocks[key].absPath,
+                                    //     port: SLAVE[blocks[key].slaveIP]
+                                    // },
+                                        block[key], function (err) {
                                         if (err) {
                                             console.log('[ERROR] 文件第 ' + (key + 1) + ' 部分下载失败');
                                             console.log(err);
@@ -700,18 +717,20 @@ var server = http.createServer(function(req, res) {
                             var deleted = [];
 
                             const blocks = receiveData.file.allFileBlocks;
-                            //console.log(blocks);
+                            console.log(blocks);
 
                             for (var i = 0; i < blocks.length; i++) {
                                 const key = i;
                                 deleted.push(false);
-                                var config = {
-                                    //host: blocks[key].block.slaveIP,
-                                    host: MASTER_HOSTNAME,
-                                    port: SLAVE[blocks[key].block.slaveIP],
-                                    username: blocks[key].block.username,
-                                    password: blocks[key].block.password
-                                };
+                                var config = getDeleteOptions(blocks[key].block);
+                                console.log(config);
+                                // var config = {
+                                //     host: SLAVE_HOSTNAME[blocks[key].block.slaveIP],
+                                //     //host: MASTER_HOSTNAME,
+                                //     port: SLAVE[blocks[key].block.slaveIP],
+                                //     username: blocks[key].block.username,
+                                //     password: blocks[key].block.password
+                                // };
                                 var sftp = new SFTPClient(config);
                                 sftp.rm(blocks[key].block.absPath)
                                     .then((success) => {
@@ -806,14 +825,13 @@ var server = http.createServer(function(req, res) {
 
                 requestNodeStatus((receiveData) => {
                     var status = [];
-                    status.push(receiveData['Node-1']);
-                    status.push(receiveData['Node-2']);
-                    status.push(receiveData['Node-3']);
-                    status.push(receiveData['Node-4']);
-                    status.push(receiveData['Node-5']);
-                    // for (var node in receiveData) {
-                    //     status.push(receiveData[node]);
-                    // }
+                    const nodes = Object.keys(receiveData);
+                    nodes.sort(function (a, b) {
+                       return (parseInt(a.slice(5, 6)) - parseInt(b.slice(5, 6)));
+                    });
+                    for (var node in nodes) {
+                        status.push(receiveData[nodes[node]]);
+                    }
                     res.writeHead(200, { 'content-type': 'application/json' });
                     res.end(JSON.stringify(status));
                 });

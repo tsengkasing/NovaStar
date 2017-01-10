@@ -30,7 +30,7 @@ import $ from 'jquery';
 const styles = {
     card : {
         margin : '0 auto',
-        maxWidth : '1024px',
+        maxWidth : '1076px',
         padding : '32px 0',
     },
     table : {
@@ -44,7 +44,6 @@ const styles = {
     },
     tableRightColumn : {
         textAlign : 'right',
-        paddingRight : 0,
     },
     button: {
         margin: 12,
@@ -545,15 +544,6 @@ class App extends React.Component {
         setInterval(this.getFileList, 32000);
         this.getNodeStatus();
         this.handleChange(null, null, this.state.blockSize);
-        // this.setState({
-        //     current_list : [
-        //         {
-        //             name : '2312321',
-        //             size : '221MB',
-        //             uploadTime : '2015-12-12 04:03:23'
-        //         },
-        //     ]
-        // });
     }
 
     previousPage= () => {
