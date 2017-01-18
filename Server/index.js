@@ -929,11 +929,12 @@ var ProxyServer = http.createServer(function(req, res) {
     }
 
     console.log("[INFO] [Proxy Server] client ip:" + ip + ", host:" + host + ", target:" + target + " url: " + pathName);
+    if(host)
 
     if (target == 'api') {
         proxy.web(req, res, { target: 'http://localhost:4708' });
     } else {
-        proxy.web(req, res, { target: 'http://localhost:3000' });
+        proxy.web(req, res, { target: 'http://localhost:6740' });
     }
 });
 
