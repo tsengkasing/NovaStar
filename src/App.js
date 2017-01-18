@@ -1,5 +1,6 @@
 import React from 'react';
 import './App.css';
+import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider'
 import {Card, CardActions} from 'material-ui/Card';
 import {Table, TableBody, TableFooter, TableHeader, TableHeaderColumn, TableRow, TableRowColumn}
     from 'material-ui/Table';
@@ -8,22 +9,16 @@ import ActionBackup from 'material-ui/svg-icons/action/backup';
 import ActionDelete from 'material-ui/svg-icons/action/delete';
 import ActionBuild from 'material-ui/svg-icons/action/build';
 import ActionRestore from 'material-ui/svg-icons/action/restore';
-import ActionZoomIn from 'material-ui/svg-icons/action/zoom-in';
+import ActionLock from 'material-ui/svg-icons/action/lock';
 import NavigationRefresh from 'material-ui/svg-icons/navigation/refresh';
 import FileFolderOpen from 'material-ui/svg-icons/file/folder-open';
 import FileFileDownload from 'material-ui/svg-icons/file/file-download';
-import {red500, greenA200, yellow700} from 'material-ui/styles/colors';
-import FileCloudCircle from 'material-ui/svg-icons/file/cloud-circle';
 import CircularProgress from 'material-ui/CircularProgress';
-import SelectField from 'material-ui/SelectField';
-import MenuItem from 'material-ui/MenuItem';
 import IconButton from 'material-ui/IconButton';
 import FlatButton from 'material-ui/FlatButton';
 import RaisedButton from 'material-ui/RaisedButton';
 import TextField from 'material-ui/TextField';
-import Subheader from 'material-ui/Subheader';
 import Dialog from 'material-ui/Dialog';
-import FileBlocksDetail from './FileBlocksDetail';
 import 'jquery-form';
 import $ from 'jquery';
 
@@ -83,8 +78,7 @@ const API = {
     Delete : URL + '/delete',
     Format : URL + '/format',
     Rename : URL + '/rename',
-    NodeStatus : URL + '/node',
-    BlockSize : URL + '/blocksize',
+    Code : URL + '/code',
     SpaceStatus : URL + '/space',
 };
 
@@ -310,6 +304,84 @@ class RenameFileDialog extends React.Component {
     }
 }
 
+class SetFileCodeDialog extends React.Component {
+    state = {
+        open: false,
+        fileId : null,
+        code : null,
+    };
+
+    handleOpen = (fileId) => {
+        this.setState({
+            open: true,
+            fileId : fileId,
+        });
+    };
+
+    handleClose = () => {
+        this.setState({open: false});
+    };
+
+    handleChange = (event) => {
+        this.setState({
+            code: event.target.value,
+        });
+    };
+
+    handleSubmit = () => {
+        const data = {id : this.state.fileId, code : this.state.code};
+        $.ajax({
+            url : API.Code,
+            type : 'POST',
+            data : JSON.stringify(data),
+            contentType: 'application/json;charset=UTF-8',
+            success : function(data, textStatus, jqXHR) {
+                this.setState({open: false});
+                this.props.onSuccess();
+            }.bind(this),
+            error : function(xhr, textStatus) {
+                console.log(xhr.status + '\n' + textStatus + '\n');
+            }
+        });
+
+
+    };
+
+    render() {
+        const actions = [
+            <FlatButton
+                label="Cancel"
+                primary={true}
+                onTouchTap={this.handleClose}
+            />,
+            <FlatButton
+                label="Submit"
+                primary={true}
+                onTouchTap={this.handleSubmit}
+            />,
+        ];
+
+        return (
+            <div>
+                <Dialog
+                    title="Set Code"
+                    actions={actions}
+                    modal={false}
+                    open={this.state.open}
+                    onRequestClose={this.handleClose}
+                >
+
+                    <TextField
+                        onChange={this.handleChange}
+                        value={this.state.filename}
+                        floatingLabelText="Code"
+                    /><br />
+                </Dialog>
+            </div>
+        );
+    }
+}
+
 class UploadFileDialog extends React.Component {
     state = {
         open: false,
@@ -394,30 +466,11 @@ class App extends React.Component {
 
             file_list : [],
             progress : false,
-            blockSize : 32,
 
-            slaves : [null, null, null, null, null],
             used_space : 0,
             capacity : 0,
         };
     }
-
-    getNodeStatus = () => {
-        $.ajax({
-            url : API.NodeStatus,
-            type : 'GET',
-            contentType: 'application/json;charset=UTF-8',
-            success : function(data, textStatus, jqXHR) {
-                //console.log(data);
-                this.setState({slaves : data});
-            }.bind(this),
-            error : function(xhr, textStatus) {
-                this.setState({slaves : [null, null, null, null, null]});
-                console.log(xhr.status + '\n' + textStatus + '\n');
-            }.bind(this)
-        });
-        setTimeout(this.getNodeStatus, 16000);
-    };
 
     getSpaceStatus = () => {
         $.ajax({
@@ -449,14 +502,13 @@ class App extends React.Component {
             success : function(data, textStatus, jqXHR) {
                 console.log(data);
 
-                const list = data.file_list;
+                const list = data;
 
                 let pages_num = parseInt((list.length / 10), 10) + ((list.length % 10 > 0) ? 1 : 0) || 1;
                 let current_page = Math.min(this.state.current_page, pages_num);
                 let current_list = list.slice((current_page - 1) * 10, (current_page - 1) * 10 + 10);
                 this.setState({
                     current_page : current_page,
-                    blockSize : data.BLOCK_SIZE,
                     file_list : list,
                     pages_num : pages_num,
                     current_list : current_list,
@@ -489,23 +541,6 @@ class App extends React.Component {
         setTimeout(this.getFileList, 1000);
     };
 
-    handleChange = (event, index, value) => {
-        $.ajax({
-            url : API.BlockSize,
-            type : 'GET',
-            data : {
-                size : value,
-            },
-            contentType: 'application/json;charset=UTF-8',
-            success : function(data, textStatus, jqXHR) {
-                this.setState({blockSize : value});
-            }.bind(this),
-            error : function(xhr, textStatus) {
-                console.log(xhr.status + '\n' + textStatus + '\n');
-            }
-        });
-    };
-
     renameFile = (index) => {
         const file = this.state.current_list[index];
         this.refs.RenameDialog.handleOpen(file.id, file.name);
@@ -525,11 +560,9 @@ class App extends React.Component {
             success : function(data, textStatus, jqXHR) {
                 console.log(data);
                 this.hiddenProgress(true);
-                if(data !== 'File Not Found') {
-                    var time = 500;
-                    if(data.slice(-3) === 'mp4') time = 5000;
-                    setTimeout(()=>window.open(data), time);
-                }
+                var time = 500;
+                if(data.slice(-3) === 'mp4') time = 5000;
+                setTimeout(()=>window.open(data), time);
             }.bind(this),
             error : function(xhr, textStatus) {
                 console.log(xhr.status + '\n' + textStatus + '\n');
@@ -546,8 +579,6 @@ class App extends React.Component {
     componentDidMount() {
         this.getFileList();
         setInterval(this.getFileList, 32000);
-        this.getNodeStatus();
-        this.handleChange(null, null, this.state.blockSize);
     }
 
     previousPage= () => {
@@ -574,6 +605,7 @@ class App extends React.Component {
 
     render() {
         return (
+            <MuiThemeProvider>
             <div>
               {/*<div className="title">*/}
                   {/*<h1>NovaStar</h1>*/}
@@ -582,33 +614,6 @@ class App extends React.Component {
                 {this.state.progress ? <LinearProgress mode="indeterminate" color="#2EFF99" /> : null}
                 <Card>
                   <div style={styles.card}>
-                      <div style={{textAlign : 'center'}}>
-                          <Subheader>Node Status</Subheader>
-                          {this.state.slaves.map((slave, index)=>(
-                              <div key={index} style={styles.slaveStatus}>Node-{index + 1}
-                                <FileCloudCircle style={styles.iconStyles} color={slave === null ? yellow700 : (slave ? greenA200 : red500)} />
-                              </div>
-                          ))}
-                          <br />
-                          <SelectField
-                              style={{textAlign : 'left', marginTop : 16}}
-                              floatingLabelText="File Block Size"
-                              value={this.state.blockSize}
-                              onChange={this.handleChange}
-                          >
-                              <MenuItem value={2} primaryText="2M" />
-                              <MenuItem value={8} primaryText="8M" />
-                              <MenuItem value={16} primaryText="16M" />
-                              <MenuItem value={32} primaryText="32M" />
-                              <MenuItem value={64} primaryText="64M" />
-                              <MenuItem value={128} primaryText="128M" />
-                              <MenuItem value={256} primaryText="256M" />
-                              <MenuItem value={512} primaryText="512M" />
-                          </SelectField>
-                          <br />
-                      </div>
-
-
 
                       <Table
                           style={styles.table}
@@ -625,7 +630,7 @@ class App extends React.Component {
                               <TableRow>
                                   <TableHeaderColumn colSpan="2" style={{fontSize : '2vh'}}>File Name</TableHeaderColumn>
                                   <TableHeaderColumn style={{fontSize : '2vh'}}>File Size</TableHeaderColumn>
-                                  <TableHeaderColumn style={{fontSize : '2vh'}}>Uploaded Time</TableHeaderColumn>
+                                  <TableHeaderColumn style={{fontSize : '2vh'}}>Modified Time</TableHeaderColumn>
                                   <TableHeaderColumn colSpan="1" style={{fontSize : '2vh', textAlign : 'right'}}>Operation</TableHeaderColumn>
                               </TableRow>
                           </TableHeader>
@@ -636,14 +641,14 @@ class App extends React.Component {
                                   <TableRow key={index}>
                                       <TableRowColumn colSpan="2">{file.name}</TableRowColumn>
                                       <TableRowColumn>{file.size}</TableRowColumn>
-                                      <TableRowColumn>{file.uploadTime}</TableRowColumn>
+                                      <TableRowColumn>{file.modified_time}</TableRowColumn>
                                       <TableRowColumn colSpan="1" style={styles.tableRightColumn} id={index}>
                                           <IconButton
                                               iconStyle={{color : 'rgb(0, 188, 212)'}}
-                                              tooltip="Detail"
+                                              tooltip="Code"
                                               tooltipPosition="center-center"
-                                              onTouchTap={()=>{this.refs.DetailDialog.handleOpen(this.state.current_list[index])}}>
-                                              <ActionZoomIn/>
+                                              onTouchTap={()=>{this.refs.CodeDialog.handleOpen(this.state.current_list[index].id)}}>
+                                              <ActionLock/>
                                           </IconButton>
                                           <IconButton
                                               iconStyle={{color : 'rgb(0, 188, 212)'}}
@@ -713,8 +718,9 @@ class App extends React.Component {
                 <RenameFileDialog ref="RenameDialog" onSuccess={this.hiddenProgress}/>
                 <DeleteFileDialog ref="DeleteDialog" onSuccess={this.hiddenProgress}/>
                 <FormatDialog ref="FormatDialog" onSuccess={this.hiddenProgress}/>
-                <FileBlocksDetail ref="DetailDialog"/>
+                <SetFileCodeDialog ref="CodeDialog" onSuccess={this.hiddenProgress}/>
             </div>
+            </MuiThemeProvider>
         );
     }
 }
